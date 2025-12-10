@@ -3,6 +3,7 @@ export interface GameElement {
   name: string;
   emoji: string;
   discovered: boolean;
+  isNew?: boolean;
 }
 
 export interface CanvasElement {

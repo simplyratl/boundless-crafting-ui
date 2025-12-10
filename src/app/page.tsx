@@ -6,6 +6,7 @@ import { GameElement, CanvasElement } from "@/types/game";
 import { Sidebar } from "@/components/Sidebar";
 import { Canvas } from "@/components/Canvas";
 import { combineElements } from "@/lib/api";
+import { playPickupSound, playDropSound } from "@/lib/sounds";
 
 // Initial base elements
 const INITIAL_ELEMENTS: GameElement[] = [
@@ -98,6 +99,15 @@ export default function Home() {
         setElements((prev) => {
           const exists = prev.some((el) => el.id === newElementId);
           if (!exists) {
+            // Clear isNew flag after 1.5 seconds
+            setTimeout(() => {
+              setElements((current) =>
+                current.map((el) =>
+                  el.id === newElementId ? { ...el, isNew: false } : el
+                )
+              );
+            }, 1500);
+
             return [
               ...prev,
               {
@@ -105,6 +115,7 @@ export default function Home() {
                 name: result.name,
                 emoji: result.emoji,
                 discovered: true,
+                isNew: true,
               },
             ];
           }
@@ -126,6 +137,7 @@ export default function Home() {
     (element: GameElement, e: React.PointerEvent) => {
       setDraggingElement(element);
       setDragPosition({ x: e.clientX - 40, y: e.clientY - 40 });
+      playPickupSound();
     },
     []
   );
@@ -244,6 +256,7 @@ export default function Home() {
               y: dropY,
             },
           ]);
+          playDropSound();
         }
       }
     },
@@ -335,11 +348,10 @@ export default function Home() {
 
   return (
     <main
-      className="flex w-screen h-screen overflow-hidden relative"
+      className="flex flex-col md:flex-row w-screen h-screen overflow-hidden relative touch-none"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      <Sidebar elements={elements} onDragStart={handleDragStart} />
       <Canvas
         ref={canvasRef}
         canvasElements={canvasElements}
@@ -351,7 +363,9 @@ export default function Home() {
         highlightedElementId={highlightedElementId}
         showRemoveZone={showRemoveZone}
         onNearRemoveZone={setShowRemoveZone}
+        onDragHighlight={setHighlightedElementId}
       />
+      <Sidebar elements={elements} onDragStart={handleDragStart} />
 
       {/* Loading indicator */}
       <AnimatePresence>
@@ -392,12 +406,12 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <div className="absolute bottom-4 right-4 z-20">
+      <div className="absolute bottom-[calc(17vh+1rem)] md:bottom-4 right-4 z-20">
         <button
-          className="bg-primary text-primary-foreground px-2"
+          className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg"
           onClick={() => setElements(resetElements())}
         >
-          Reset Game
+          Reset
         </button>
       </div>
     </main>

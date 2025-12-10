@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-150 -150 300 300">
+    <defs>
+        <!-- Gradient that fades to transparent -->
+        <linearGradient id="fadeGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" style="stop-color:var(--foreground)"/>
+            <stop offset="100%" style="stop-color:#D3D3D3;stop-opacity:0"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Single set of 5 larger rotating rays -->
+    <g>
+        <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 0 0"
+                to="360 0 0"
+                dur="10s"
+                repeatCount="indefinite"/>
+
+        <!-- 5 evenly-spaced larger rays (72 degrees apart) -->
+        <path d="M-8,0 L-40,-150 L40,-150 L8,0 Z" fill="url(#fadeGradient)" transform="rotate(0)"/>
+        <path d="M-8,0 L-40,-150 L40,-150 L8,0 Z" fill="url(#fadeGradient)" transform="rotate(72)"/>
+        <path d="M-8,0 L-40,-150 L40,-150 L8,0 Z" fill="url(#fadeGradient)" transform="rotate(144)"/>
+        <path d="M-8,0 L-40,-150 L40,-150 L8,0 Z" fill="url(#fadeGradient)" transform="rotate(216)"/>
+        <path d="M-8,0 L-40,-150 L40,-150 L8,0 Z" fill="url(#fadeGradient)" transform="rotate(288)"/>
+    </g>
+</svg>

@@ -15,6 +15,7 @@ interface CanvasProps {
   highlightedElementId: string | null;
   showRemoveZone: boolean;
   onNearRemoveZone: (near: boolean) => void;
+  onDragHighlight: (targetId: string | null) => void;
 }
 
 export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
@@ -28,6 +29,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
     highlightedElementId,
     showRemoveZone,
     onNearRemoveZone,
+    onDragHighlight,
   },
   ref
 ) {
@@ -38,11 +40,11 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
   return (
     <div
       ref={ref}
-      className="flex-1 bg-muted relative overflow-hidden bg-[radial-gradient(circle,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[length:30px_30px] z-20"
+      className="flex-1 min-h-0 bg-muted relative overflow-hidden bg-[radial-gradient(circle,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[length:30px_30px] z-20 touch-none"
     >
-      {/* Remove zone gradient indicator */}
+      {/* Remove zone gradient indicator - bottom on mobile, left on desktop */}
       <div
-        className={`absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-red-500/50 to-transparent pointer-events-none transition-opacity duration-200 z-50 ${
+        className={`absolute left-0 md:left-0 bottom-0 md:top-0 right-0 md:right-auto top-auto md:bottom-0 h-16 md:h-auto md:w-24 bg-gradient-to-t md:bg-gradient-to-r from-red-500/50 to-transparent pointer-events-none transition-opacity duration-200 z-50 ${
           showRemoveZone ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -58,6 +60,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
             <DraggableElement
               key={canvasElement.id}
               canvasElement={canvasElement}
+              canvasElements={canvasElements}
               gameElement={gameElement}
               onDragEnd={onDragEnd}
               onCombine={onCombine}
@@ -66,13 +69,14 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
               isCombining={isCombining}
               isHighlighted={isHighlighted}
               onNearRemoveZone={onNearRemoveZone}
+              onDragHighlight={onDragHighlight}
             />
           );
         })}
       </AnimatePresence>
       {canvasElements.length === 0 && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground text-lg text-center pointer-events-none">
-          Drag elements from the sidebar to the canvas
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground text-sm md:text-lg text-center pointer-events-none px-4">
+          Drag elements from below to craft
         </div>
       )}
     </div>
