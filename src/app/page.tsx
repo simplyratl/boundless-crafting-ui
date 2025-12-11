@@ -63,6 +63,12 @@ export default function Home() {
   >(null);
   const [showRemoveZone, setShowRemoveZone] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const draggingElementRef = useRef<GameElement | null>(null);
+
+  // Keep ref in sync with state for use in event listeners
+  useEffect(() => {
+    draggingElementRef.current = draggingElement;
+  }, [draggingElement]);
 
   // Load elements from localStorage on mount
   useEffect(() => {
@@ -134,7 +140,7 @@ export default function Home() {
   );
 
   const handleDragStart = useCallback(
-    (element: GameElement, e: React.PointerEvent) => {
+    (element: GameElement, e: React.PointerEvent | PointerEvent) => {
       setDraggingElement(element);
       setDragPosition({ x: e.clientX - 40, y: e.clientY - 40 });
       playPickupSound();
@@ -162,8 +168,8 @@ export default function Home() {
     [draggingElement, canvasElements]
   );
 
-  const handlePointerUp = useCallback(
-    async (e: React.PointerEvent) => {
+  const handlePointerUpInternal = useCallback(
+    async (e: React.PointerEvent | { clientX: number; clientY: number }) => {
       setHighlightedElementId(null);
 
       if (!draggingElement || !canvasRef.current) {
@@ -263,6 +269,53 @@ export default function Home() {
     [draggingElement, canvasElements, findGameElement, combineWithAPI]
   );
 
+  // Wrapper for React event handlers
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      handlePointerUpInternal(e);
+    },
+    [handlePointerUpInternal]
+  );
+
+  // Global pointer event handlers for mobile touch dragging
+  useEffect(() => {
+    if (!draggingElement) return;
+
+    const handleGlobalMove = (e: PointerEvent) => {
+      if (draggingElementRef.current && canvasRef.current) {
+        setDragPosition({ x: e.clientX - 40, y: e.clientY - 40 });
+
+        // Check for potential combine targets to highlight
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dropX = e.clientX - rect.left - 40;
+        const dropY = e.clientY - rect.top - 40;
+
+        const targetElement = canvasElements.find(
+          (el) => Math.abs(el.x - dropX) < 60 && Math.abs(el.y - dropY) < 60
+        );
+
+        setHighlightedElementId(targetElement?.id || null);
+      }
+    };
+
+    const handleGlobalUp = (e: PointerEvent) => {
+      handlePointerUpInternal({
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+    };
+
+    window.addEventListener("pointermove", handleGlobalMove);
+    window.addEventListener("pointerup", handleGlobalUp);
+    window.addEventListener("pointercancel", handleGlobalUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handleGlobalMove);
+      window.removeEventListener("pointerup", handleGlobalUp);
+      window.removeEventListener("pointercancel", handleGlobalUp);
+    };
+  }, [draggingElement, canvasElements, handlePointerUpInternal]);
+
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
       // Skip update if element is being combined
@@ -348,7 +401,8 @@ export default function Home() {
 
   return (
     <main
-      className="flex flex-col md:flex-row w-screen h-screen overflow-hidden relative touch-none"
+      className="flex flex-col md:flex-row w-screen overflow-hidden relative touch-none"
+      style={{ height: "100dvh" }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
@@ -406,7 +460,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <div className="absolute bottom-[calc(17vh+1rem)] md:bottom-4 right-4 z-20">
+      <div className="absolute bottom-[calc(35vh+1rem)] md:bottom-4 right-4 z-20">
         <button
           className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg"
           onClick={() => setElements(resetElements())}
