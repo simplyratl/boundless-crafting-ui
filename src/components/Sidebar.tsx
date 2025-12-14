@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { GameElement } from "@/types/game";
 import { motion } from "motion/react";
 import { Category, CATEGORIES, categorizeElement } from "@/lib/categories";
@@ -67,37 +67,6 @@ export function Sidebar({ elements, onDragStart }: SidebarProps) {
     touchStartRef.current = null;
   }, []);
 
-  // When long press is triggered, the next pointer move/up on the window should start drag
-  useEffect(() => {
-    if (!longPressElement) return;
-
-    const handleGlobalPointerMove = (e: PointerEvent) => {
-      if (longPressElement) {
-        // Convert to React-like event and start dragging
-        onDragStart(longPressElement, e as unknown as React.PointerEvent);
-        setLongPressElement(null);
-      }
-    };
-
-    const handleGlobalPointerUp = () => {
-      clearLongPress();
-    };
-
-    window.addEventListener("pointermove", handleGlobalPointerMove, {
-      once: true,
-    });
-    window.addEventListener("pointerup", handleGlobalPointerUp, { once: true });
-    window.addEventListener("pointercancel", handleGlobalPointerUp, {
-      once: true,
-    });
-
-    return () => {
-      window.removeEventListener("pointermove", handleGlobalPointerMove);
-      window.removeEventListener("pointerup", handleGlobalPointerUp);
-      window.removeEventListener("pointercancel", handleGlobalPointerUp);
-    };
-  }, [longPressElement, onDragStart, clearLongPress]);
-
   const handlePointerDown = useCallback(
     (element: GameElement, e: React.PointerEvent) => {
       if (e.pointerType === "touch") {
@@ -121,7 +90,7 @@ export function Sidebar({ elements, onDragStart }: SidebarProps) {
           if (navigator.vibrate) {
             navigator.vibrate(50);
           }
-          // Remove the move listener since long press succeeded
+          // Remove the scroll-cancel listener since long press succeeded
           if (handlePointerMoveRef.current) {
             window.removeEventListener(
               "pointermove",
@@ -129,7 +98,23 @@ export function Sidebar({ elements, onDragStart }: SidebarProps) {
             );
             handlePointerMoveRef.current = null;
           }
+
+          // Immediately start the drag with the stored touch position
+          const syntheticEvent = {
+            clientX: startPos.x,
+            clientY: startPos.y,
+            pointerType: "touch",
+            preventDefault: () => {},
+            stopPropagation: () => {},
+          } as unknown as React.PointerEvent;
+
+          onDragStart(element, syntheticEvent);
           setLongPressElement(element);
+
+          // Clear the long press state after a short delay to show visual feedback
+          setTimeout(() => {
+            setLongPressElement(null);
+          }, 100);
         }, 200); // 200ms long press
       } else {
         // On desktop, start drag immediately
