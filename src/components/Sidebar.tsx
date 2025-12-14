@@ -11,7 +11,11 @@ interface SidebarProps {
   isDragging?: boolean;
 }
 
-export function Sidebar({ elements, onDragStart, isDragging = false }: SidebarProps) {
+export function Sidebar({
+  elements,
+  onDragStart,
+  isDragging = false,
+}: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
   const [longPressElement, setLongPressElement] = useState<GameElement | null>(
@@ -180,7 +184,13 @@ export function Sidebar({ elements, onDragStart, isDragging = false }: SidebarPr
       </div>
 
       {/* Elements grid - scrollable on both mobile and desktop */}
-      <div className={`flex-1 min-h-0 scrollbar-thin overscroll-contain ${isDragging ? 'overflow-hidden touch-none' : 'overflow-y-auto touch-pan-y'}`}>
+      <div
+        className={`flex-1 min-h-0 scrollbar-thin overscroll-contain ${
+          isDragging
+            ? "overflow-hidden touch-none"
+            : "overflow-y-auto touch-pan-y"
+        }`}
+      >
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-1 gap-1.5 md:gap-2 p-1">
           {filteredElements.length === 0 ? (
             <div className="col-span-full text-sm text-muted-foreground text-center py-4">

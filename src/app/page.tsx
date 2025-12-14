@@ -419,7 +419,11 @@ export default function Home() {
         onNearRemoveZone={setShowRemoveZone}
         onDragHighlight={setHighlightedElementId}
       />
-      <Sidebar elements={elements} onDragStart={handleDragStart} isDragging={!!draggingElement} />
+      <Sidebar
+        elements={elements}
+        onDragStart={handleDragStart}
+        isDragging={!!draggingElement}
+      />
 
       {/* Loading indicator */}
       <AnimatePresence>
