@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { AnimatePresence } from "motion/react";
 import { GameElement, CanvasElement } from "@/types/game";
 import { DraggableElement } from "./DraggableElement";
+import { CanvasBackground } from "./CanvasBackground";
 
 interface CanvasProps {
   canvasElements: CanvasElement[];
@@ -40,8 +41,11 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(function Canvas(
   return (
     <div
       ref={ref}
-      className="flex-1 min-h-0 bg-muted relative overflow-hidden bg-[radial-gradient(circle,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[length:30px_30px] z-20 touch-none"
+      className="flex-1 min-h-0 bg-muted relative overflow-hidden z-20 touch-none"
     >
+      {/* Interactive particle background */}
+      <CanvasBackground canvasElements={canvasElements} />
+
       {/* Remove zone gradient indicator - bottom on mobile, left on desktop */}
       <div
         className={`absolute left-0 md:left-0 bottom-0 md:top-0 right-0 md:right-auto top-auto md:bottom-0 h-16 md:h-auto md:w-24 bg-gradient-to-t md:bg-gradient-to-r from-red-500/50 to-transparent pointer-events-none transition-opacity duration-200 z-50 ${
