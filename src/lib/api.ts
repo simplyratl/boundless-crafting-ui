@@ -3,6 +3,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export interface CombineResult {
   name: string;
   emoji: string;
+  description: string;
+  hasCompletedDaily: boolean;
+  similarity: number | null;
 }
 
 export interface AskResult {
@@ -11,16 +14,29 @@ export interface AskResult {
 
 export async function combineElements(
   first: string,
-  second: string
+  second: string,
+  dailyGoal: string | null = null
 ): Promise<CombineResult> {
-  const response = await fetch(
-    `${API_BASE_URL}/combine?first=${encodeURIComponent(
-      first
-    )}&second=${encodeURIComponent(second)}`
-  );
+  const payload: Record<string, unknown> = {
+    first,
+    second,
+  };
+
+  if (dailyGoal) {
+    payload.dailyGoal = dailyGoal;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/combine`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to combine elements");
+    const text = await response.text().catch(() => null);
+    throw new Error(`Failed to combine elements${text ? `: ${text}` : ""}`);
   }
 
   return response.json();

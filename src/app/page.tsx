@@ -2,11 +2,20 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { GameElement, CanvasElement } from "@/types/game";
+import {
+  GameElement,
+  CanvasElement,
+  GameMode,
+  DailyChallenge,
+} from "@/types/game";
 import { Sidebar } from "@/components/Sidebar";
 import { Canvas } from "@/components/Canvas";
 import { combineElements } from "@/lib/api";
 import { playPickupSound, playDropSound } from "@/lib/sounds";
+import { Button } from "@/components/ui/button";
+import { DailyChallengeCard } from "@/components/DailyChallenge";
+import { ModeToggle } from "@/components/ModeToggle";
+import { getDailyChallenge } from "@/lib/challenges";
 
 // Initial base elements
 const INITIAL_ELEMENTS: GameElement[] = [
@@ -17,6 +26,8 @@ const INITIAL_ELEMENTS: GameElement[] = [
 ];
 
 const STORAGE_KEY = "boundless-crafting-elements";
+const MODE_STORAGE_KEY = "boundless-crafting-mode";
+const CHALLENGE_STATUS_KEY = "boundless-crafting-challenge-status";
 
 // Load elements from localStorage
 const loadElements = (): GameElement[] => {
@@ -50,6 +61,11 @@ const resetElements = (): GameElement[] => {
 let elementIdCounter = 0;
 
 export default function Home() {
+  const [gameMode, setGameMode] = useState<GameMode>("discovery");
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(
+    null
+  );
+  const [challengeCompleted, setChallengeCompleted] = useState(false);
   const [elements, setElements] = useState<GameElement[]>(INITIAL_ELEMENTS);
   const [canvasElements, setCanvasElements] = useState<CanvasElement[]>([]);
   const [draggingElement, setDraggingElement] = useState<GameElement | null>(
@@ -70,6 +86,58 @@ export default function Home() {
     draggingElementRef.current = draggingElement;
   }, [draggingElement]);
 
+  const persistChallengeStatus = useCallback(
+    (challenge: DailyChallenge, completed: boolean) => {
+      if (typeof window === "undefined") return;
+      const payload = {
+        challengeId: challenge.id,
+        completed,
+        completedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(CHALLENGE_STATUS_KEY, JSON.stringify(payload));
+    },
+    []
+  );
+
+  const completeTodayChallenge = useCallback(() => {
+    if (!dailyChallenge) return;
+    setChallengeCompleted(true);
+    persistChallengeStatus(dailyChallenge, true);
+  }, [dailyChallenge, persistChallengeStatus]);
+
+  // Load game mode and daily challenge on mount
+  useEffect(() => {
+    // Load saved mode or default to discovery
+    const savedMode = localStorage.getItem(MODE_STORAGE_KEY) as GameMode;
+    if (savedMode === "discovery" || savedMode === "sandbox") {
+      setGameMode(savedMode);
+    }
+
+    // Load today's challenge
+    setDailyChallenge(getDailyChallenge());
+  }, []);
+
+  // Load completion state for today's challenge
+  useEffect(() => {
+    if (!dailyChallenge) return;
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem(CHALLENGE_STATUS_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        challengeId?: string;
+        completed?: boolean;
+      };
+      if (parsed.challengeId === dailyChallenge.id && parsed.completed) {
+        setChallengeCompleted(true);
+      } else {
+        setChallengeCompleted(false);
+      }
+    } catch (err) {
+      console.error("Failed to load challenge status", err);
+    }
+  }, [dailyChallenge]);
+
   // Load elements from localStorage on mount
   useEffect(() => {
     setElements(loadElements());
@@ -81,6 +149,16 @@ export default function Home() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(elements));
     }
   }, [elements]);
+
+  // Save game mode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem(MODE_STORAGE_KEY, gameMode);
+  }, [gameMode]);
+
+  // Handle mode change
+  const handleModeChange = useCallback((newMode: GameMode) => {
+    setGameMode(newMode);
+  }, []);
 
   const generateId = () => {
     elementIdCounter += 1;
@@ -98,8 +176,22 @@ export default function Home() {
     async (firstName: string, secondName: string) => {
       setIsLoading(true);
       try {
-        const result = await combineElements(firstName, secondName);
+        const isDailyChallenge = gameMode === "discovery";
+        const dailyGoalToSend =
+          isDailyChallenge && !challengeCompleted
+            ? dailyChallenge?.description ?? null
+            : null;
+
+        const result = await combineElements(
+          firstName,
+          secondName,
+          dailyGoalToSend
+        );
         const newElementId = result.name.toLowerCase().replace(/\s+/g, "-");
+
+        if (result.hasCompletedDaily && !challengeCompleted) {
+          completeTodayChallenge();
+        }
 
         // Add to discovered elements if new
         setElements((prev) => {
@@ -136,7 +228,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    []
+    [dailyChallenge, challengeCompleted, completeTodayChallenge, gameMode]
   );
 
   const handleDragStart = useCallback(
@@ -429,7 +521,7 @@ export default function Home() {
       <AnimatePresence>
         {isLoading && (
           <motion.div
-            className="fixed top-4 right-4 z-[9999] bg-card px-4 py-2 rounded-lg border border-border shadow-lg flex items-center gap-2"
+            className="fixed top-4 right-4 z-9999 bg-card px-4 py-2 rounded-lg border border-border shadow-lg flex items-center gap-2"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -454,23 +546,32 @@ export default function Home() {
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
-            <span className="text-2xl leading-none flex-shrink-0">
+            <span className="text-2xl leading-none shrink-0">
               {draggingElement.emoji}
             </span>
-            <span className="text-sm font-medium text-card-foreground leading-tight break-words">
+            <span className="text-sm font-medium text-card-foreground leading-tight wrap-break-word">
               {draggingElement.name}
             </span>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Mode toggle and daily challenge (float away from sidebar) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 z-30 flex flex-col gap-3 w-[min(90vw,360px)]">
+        <ModeToggle mode={gameMode} onModeChange={handleModeChange} />
+        {gameMode === "discovery" && dailyChallenge && (
+          <DailyChallengeCard
+            challenge={dailyChallenge}
+            completed={challengeCompleted}
+            onComplete={completeTodayChallenge}
+          />
+        )}
+      </div>
+
       <div className="absolute bottom-[calc(35vh+1rem)] md:bottom-4 right-4 z-20">
-        <button
-          className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm font-medium shadow-lg"
-          onClick={() => setElements(resetElements())}
-        >
-          Reset
-        </button>
+        <Button size="sm" onClick={() => setElements(resetElements())}>
+          Reset game
+        </Button>
       </div>
     </main>
   );

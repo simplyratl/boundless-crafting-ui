@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import {useRef, useEffect, useCallback} from "react";
 import { CanvasElement } from "@/types/game";
 
 interface Particle {
@@ -21,6 +21,7 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
   const particlesRef = useRef<Particle[]>([]);
   const animationRef = useRef<number | null>(null);
   const containerSizeRef = useRef({ width: 0, height: 0 });
+  const mousePositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const initParticles = useCallback((width: number, height: number) => {
     const particles: Particle[] = [];
@@ -43,6 +44,26 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
       }
     }
     return particles;
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (x >= 0 && y >= 0 && x <= rect.width && y <= rect.height) {
+        mousePositionRef.current = { x, y };
+      } else {
+        mousePositionRef.current = null;
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
   }, []);
 
   useEffect(() => {
@@ -78,6 +99,7 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
 
       const particles = particlesRef.current;
       const elements = canvasElements;
+      const mousePosition = mousePositionRef.current;
 
       // Influence radius and strength
       const influenceRadius = 120;
@@ -114,7 +136,7 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
         particle.y += (targetY - particle.y) * 0.1;
 
         // Adjust opacity based on proximity to elements
-        let targetOpacity = 0.12;
+        let targetOpacity = 0.3;
         if (closestDistance < influenceRadius) {
           // Fade out particles closer to elements, brighten ones at the edge
           const normalizedDist = closestDistance / influenceRadius;
@@ -124,7 +146,34 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
             targetOpacity = 0.12 + (1 - normalizedDist) * 0.2;
           }
         }
-        particle.opacity += (targetOpacity - particle.opacity) * 0.08;
+
+        // Handle opacity
+        const proximityRadius = 100;
+
+        if (mousePosition) {
+          const dx = particle.x - mousePosition.x;
+          const dy = particle.y - mousePosition.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < proximityRadius) {
+            const t = 1 - dist / proximityRadius;
+            const smooth = t * t * (3 - 2 * t);
+
+            const boostedOpacity = Math.min(1, particle.opacity + smooth * 2);
+            const boostedSize = 1 + smooth * 2;
+
+            particle.size += (boostedSize - particle.size) * 0.4;
+            particle.opacity += (boostedOpacity - particle.opacity) * 0.2;
+          } else {
+            // Reset to default if not in proximity
+            particle.size += (1.5 - particle.size) * 0.2;
+            particle.opacity += (targetOpacity - particle.opacity) * 0.1;
+          }
+        } else {
+          // Reset to default if no mouse
+          particle.size += (1.5 - particle.size) * 0.2;
+          particle.opacity += (targetOpacity - particle.opacity) * 0.1;
+        }
 
         // Draw particle
         ctx.beginPath();
@@ -134,8 +183,6 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
       });
 
       // Draw subtle connection lines between nearby particles that are displaced
-      ctx.strokeStyle = "rgba(100, 100, 120, 0.4)";
-      ctx.lineWidth = 0.5;
       particles.forEach((p1, i) => {
         const displacement1 =
           Math.abs(p1.x - p1.baseX) + Math.abs(p1.y - p1.baseY);
@@ -148,7 +195,26 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
               const dy = p1.y - p2.y;
               const distance = Math.sqrt(dx * dx + dy * dy);
               if (distance < 50) {
+                let opacity = 0.4;
+                let width = 0.5;
+
+                if (mousePosition) {
+                  const mx = (p1.x + p2.x) / 2;
+                  const my = (p1.y + p2.y) / 2;
+                  const dmx = mx - mousePosition.x;
+                  const dmy = my - mousePosition.y;
+                  const dMouse = Math.sqrt(dmx * dmx + dmy * dmy);
+
+                  if (dMouse < 150) {
+                    const boost = 1 - dMouse / 150;
+                    opacity = 0.2 + boost * 0.2;
+                    width = 0.5 + boost * 1.2;
+                  }
+                }
+
                 ctx.beginPath();
+                ctx.strokeStyle = `rgba(100, 100, 120, ${opacity})`;
+                ctx.lineWidth = width;
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
@@ -171,10 +237,12 @@ export function CanvasBackground({ canvasElements }: CanvasBackgroundProps) {
   }, [canvasElements]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
-      style={{ opacity: 0.8 }}
-    />
+    <div className="absolute inset-0 z-0">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{ opacity: 0.8 }}
+      />
+    </div>
   );
 }
