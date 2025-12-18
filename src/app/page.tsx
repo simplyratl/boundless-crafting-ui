@@ -10,12 +10,11 @@ import {
 } from "@/types/game";
 import { Sidebar } from "@/components/Sidebar";
 import { Canvas } from "@/components/Canvas";
-import { combineElements } from "@/lib/api";
+import { combineElements, fetchDailyGoal } from "@/lib/api";
 import { playPickupSound, playDropSound } from "@/lib/sounds";
 import { Button } from "@/components/ui/button";
 import { DailyChallengeCard } from "@/components/DailyChallenge";
 import { ModeToggle } from "@/components/ModeToggle";
-import { getDailyChallenge } from "@/lib/challenges";
 
 // Initial base elements
 const INITIAL_ELEMENTS: GameElement[] = [
@@ -107,14 +106,38 @@ export default function Home() {
 
   // Load game mode and daily challenge on mount
   useEffect(() => {
+    let cancelled = false;
+
     // Load saved mode or default to discovery
     const savedMode = localStorage.getItem(MODE_STORAGE_KEY) as GameMode;
     if (savedMode === "discovery" || savedMode === "sandbox") {
       setGameMode(savedMode);
     }
 
-    // Load today's challenge
-    setDailyChallenge(getDailyChallenge());
+    const loadDailyGoal = async () => {
+      try {
+        const goal = await fetchDailyGoal();
+
+        if (cancelled) return;
+
+        setDailyChallenge({
+          id: goal.id,
+          title: goal.title,
+          hint: goal.hint,
+          targetEmoji: goal.targetEmoji,
+          date: goal.date,
+          targetName: goal.targetName,
+        });
+      } catch (err) {
+        console.error("Failed to load daily goal", err);
+      }
+    };
+
+    loadDailyGoal();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Load completion state for today's challenge
@@ -177,15 +200,15 @@ export default function Home() {
       setIsLoading(true);
       try {
         const isDailyChallenge = gameMode === "discovery";
-        const dailyGoalToSend =
+        const dailyGoalIdToSend =
           isDailyChallenge && !challengeCompleted
-            ? dailyChallenge?.description ?? null
+            ? dailyChallenge?.id ?? null
             : null;
 
         const result = await combineElements(
           firstName,
           secondName,
-          dailyGoalToSend
+          dailyGoalIdToSend
         );
         const newElementId = result.name.toLowerCase().replace(/\s+/g, "-");
 

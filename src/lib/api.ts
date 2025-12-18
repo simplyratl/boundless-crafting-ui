@@ -15,15 +15,15 @@ export interface AskResult {
 export async function combineElements(
   first: string,
   second: string,
-  dailyGoal: string | null = null
+  dailyGoalId: string | null = null
 ): Promise<CombineResult> {
   const payload: Record<string, unknown> = {
     first,
     second,
   };
 
-  if (dailyGoal) {
-    payload.dailyGoal = dailyGoal;
+  if (dailyGoalId) {
+    payload.dailyGoalId = dailyGoalId;
   }
 
   const response = await fetch(`${API_BASE_URL}/combine`, {
@@ -37,6 +37,28 @@ export async function combineElements(
   if (!response.ok) {
     const text = await response.text().catch(() => null);
     throw new Error(`Failed to combine elements${text ? `: ${text}` : ""}`);
+  }
+
+  return response.json();
+}
+
+export interface DailyGoalResponse {
+  id: string;
+  title: string;
+  targetName: string;
+  targetEmoji: string;
+  hint: string;
+  date: string;
+}
+
+export async function fetchDailyGoal(): Promise<DailyGoalResponse> {
+  const response = await fetch(`${API_BASE_URL}/daily-goal`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => null);
+    throw new Error(`Failed to fetch daily goal${text ? `: ${text}` : ""}`);
   }
 
   return response.json();

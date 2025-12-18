@@ -23,8 +23,9 @@ export type GameMode = "discovery" | "sandbox";
 export interface DailyChallenge {
   id: string;
   title: string;
-  description: string;
-  emoji: string;
+  targetName: string;
+  targetEmoji: string;
+  hint: string;
   date: string;
 }
 
